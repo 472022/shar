@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title></title> <!-- Title removed as requested -->
+  
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { primary: "#3B82F6", secondary: "#10B981" },
+          borderRadius: {
+            none: "0px",
+            sm: "4px",
+            DEFAULT: "8px",
+            md: "12px",
+            lg: "16px",
+            xl: "20px",
+            "2xl": "24px",
+            "3xl": "32px",
+            full: "9999px",
+            button: "8px",
+          },
+        },
+      },
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.6.0/remixicon.min.css" rel="stylesheet" />
+  <script src="https://s3.tradingview.com/tv.js"></script>
+  <style>
+    :where([class^="ri-"])::before {
+      content: "\f3c2";
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 2px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    /* Scroll area fixed height for World Market Box */
+    #worldMarketList {
+      max-height: 180px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 font-sans">
+  <div class="flex h-screen">
+    <!-- Left Sidebar -->
+    <div class="w-80 bg-white border-r border-gray-200 flex flex-col">
+      <!-- Header (Empty to replace logo/title) -->
+      <div class="p-4 border-b border-gray-200">
+        <!-- Removed logo/title and filters -->
+        <div class="text-center text-sm text-gray-500 italic">Search all Binance-listed cryptocurrencies</div>
+        <!-- Search Bar -->
+        <div class="relative mt-2">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <i class="ri-search-line text-gray-400"></i>
+          </div>
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="Search coins..."
+            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
+            autocomplete="off"
+          />
+        </div>
+      </div>
+
+      <!-- Watchlist Container (Dynamic) -->
+      <div id="watchlistContainer" class="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
+        <!-- Dynamically populated with coins matching search or favorites -->
+      </div>
+
+      <!-- World Market Info (instead of Add to Watchlist button) -->
+      <div class="p-4 border-t border-gray-200 bg-gray-50">
+        <h3 class="font-semibold text-gray-900 mb-3 select-none">World Market Short Info</h3>
+        <div id="worldMarketList" class="text-sm space-y-2">
+          <!-- Will be populated dynamically -->
+          <div class="text-center text-gray-400">Loading global market data...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <!-- Market Overview Header -->
+      <div class="bg-white border-b border-gray-200 p-6">
+        <div class="grid grid-cols-4 gap-6">
+          <div class="text-center">
+            <div class="text-sm text-gray-500">Total Market Cap</div>
+            <div class="text-2xl font-bold text-gray-900" id="marketCap">₹0.00</div>
+            <div class="text-sm text-green-600" id="marketCapChange">+0.00%</div>
+          </div>
+          <div class="text-center">
+            <div class="text-sm text-gray-500">24h Volume</div>
+            <div class="text-2xl font-bold text-gray-900" id="volume24h">₹0.00</div>
+            <div class="text-sm text-red-600" id="volume24hChange">-0.00%</div>
+          </div>
+          <div class="text-center">
+            <div class="text-sm text-gray-500">BTC Dominance</div>
+            <div class="text-2xl font-bold text-gray-900" id="btcDominance">0.0%</div>
+            <div class="text-sm text-green-600" id="btcDominanceChange">+0.00%</div>
+          </div>
+          <div class="text-center">
+            <div class="text-sm text-gray-500">Market Sentiment</div>
+            <div class="text-2xl font-bold text-green-600" id="marketSentiment">Neutral</div>
+            <div class="text-sm text-gray-500" id="fearGreedIndex">Fear & Greed: N/A</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Trading Content -->
+      <div class="flex-1 flex overflow-hidden">
+        <!-- Chart Section -->
+        <div class="flex-1 flex flex-col bg-white shadow-lg">
+          <!-- Chart Header -->
+          <div class="p-6 border-b border-gray-200">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-4">
+                <div class="flex items-center gap-3">
+                  <div
+                    class="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center"
+                    id="selectedCoinIcon"
+                    title="Selected Coin Icon"
+                  >
+                    <i class="ri-currency-line text-white text-lg"></i>
+                  </div>
+                  <div>
+                    <h2
+                      class="text-xl font-bold text-gray-900"
+                      id="selectedCoin"
+                    >
+                      Bitcoin (BTC)
+                    </h2>
+                    <div class="text-sm text-gray-500" id="selectedCoinRank">Rank #1</div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <div
+                    class="text-3xl font-bold text-gray-900"
+                    id="currentPrice"
+                  >
+                    ₹0.00
+                  </div>
+                  <div class="text-lg text-green-600" id="priceChange">+0.00%</div>
+                </div>
+              </div>
+              <div class="flex gap-2" id="timeframeButtons">
+                <button
+                  class="timeframe-btn px-3 py-1 text-sm font-medium text-gray-600 bg-gray-100 rounded !rounded-button whitespace-nowrap"
+                  data-timeframe="1H"
+                >
+                  1H
+                </button>
+                <button
+                  class="timeframe-btn px-3 py-1 text-sm font-medium bg-primary text-white rounded !rounded-button whitespace-nowrap"
+                  data-timeframe="24H"
+                >
+                  24H
+                </button>
+                <button
+                  class="timeframe-btn px-3 py-1 text-sm font-medium text-gray-600 bg-gray-100 rounded !rounded-button whitespace-nowrap"
+                  data-timeframe="7D"
+                >
+                  7D
+                </button>
+                <button
+                  class="timeframe-btn px-3 py-1 text-sm font-medium text-gray-600 bg-gray-100 rounded !rounded-button whitespace-nowrap"
+                  data-timeframe="30D"
+                >
+                  30D
+                </button>
+                <button
+                  class="timeframe-btn px-3 py-1 text-sm font-medium text-gray-600 bg-gray-100 rounded !rounded-button whitespace-nowrap"
+                  data-timeframe="1Y"
+                >
+                  1Y
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chart Container -->
+          <div class="flex-1 p-6">
+            <div id="tradingview_chart" class="w-full h-full"></div>
+          </div>
+
+          <!-- Trading Info Panel -->
+          <div class="p-6 border-t border-gray-200" id="tradingInfoPanel">
+            <div class="grid grid-cols-6 gap-6">
+              <div>
+                <div class="text-sm text-gray-500">24h High</div>
+                <div class="text-lg font-semibold text-gray-900" id="high24h">₹0.00</div>
+              </div>
+              <div>
+                <div class="text-sm text-gray-500">24h Low</div>
+                <div class="text-lg font-semibold text-gray-900" id="low24h">₹0.00</div>
+              </div>
+              <div>
+                <div class="text-sm text-gray-500">Volume</div>
+                <div class="text-lg font-semibold text-gray-900" id="volume">₹0.00</div>
+              </div>
+              <div>
+                <div class="text-sm text-gray-500">Market Cap</div>
+                <div class="text-lg font-semibold text-gray-900" id="marketCapCoin">N/A</div>
+              </div>
+              <div>
+                <div class="text-sm text-gray-500">Circulating Supply</div>
+                <div class="text-lg font-semibold text-gray-900" id="circulatingSupply">N/A</div>
+              </div>
+              <div>
+                <div class="text-sm text-gray-500">Max Supply</div>
+                <div class="text-lg font-semibold text-gray-900" id="maxSupply">N/A</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Panel - Order Book & Trades -->
+        <div class="w-80 bg-white border-l border-gray-200 flex flex-col shadow-lg">
+          <!-- Order Book -->
+          <div class="flex-1 border-b border-gray-200 p-4 overflow-y-auto custom-scrollbar">
+            <h3 class="font-semibold text-gray-900 mb-3 select-none">Order Book</h3>
+            <div class="mb-4">
+              <div class="text-xs text-gray-500 mb-2">Sell Orders</div>
+              <div id="orderBookSell" class="space-y-1"></div>
+            </div>
+            <div class="py-2 text-center border-y border-gray-200 mb-4">
+              <div class="text-lg font-bold text-green-600" id="orderBookCurrentPrice">₹0.00</div>
+              <div class="text-xs text-gray-500">Current Price</div>
+            </div>
+            <div>
+              <div class="text-xs text-gray-500 mb-2">Buy Orders</div>
+              <div id="orderBookBuy" class="space-y-1"></div>
+            </div>
+          </div>
+
+          <!-- Recent Trades -->
+          <div class="flex-1 p-4 overflow-y-auto custom-scrollbar">
+            <h3 class="font-semibold text-gray-900 mb-3 select-none">Recent Trades</h3>
+            <div id="recentTrades" class="space-y-2"></div>
+          </div>
+
+          <!-- Quick Trade Buttons -->
+          <div class="p-4 border-t border-gray-200">
+            <div class="grid grid-cols-2 gap-3">
+              <button
+                class="py-2 px-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors !rounded-button whitespace-nowrap"
+                id="buyBtn"
+              >
+                Buy BTC
+              </button>
+              <button
+                class="py-2 px-4 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors !rounded-button whitespace-nowrap"
+                id="sellBtn"
+              >
+                Sell BTC
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const coinMeta = {
+      BTC: { symbolBinance: "BTCUSDT", color: "bg-orange-500" },
+      ETH: { symbolBinance: "ETHUSDT", color: "bg-blue-500" },
+      ADA: { symbolBinance: "ADAUSDT", color: "bg-purple-500" },
+      SOL: { symbolBinance: "SOLUSDT", color: "bg-indigo-500" },
+      DOT: { symbolBinance: "DOTUSDT", color: "bg-pink-500" },
+      MATIC: { symbolBinance: "MATICUSDT", color: "bg-purple-600" },
+    };
+
+    let usdToInrRate = null;
+    let tvWidget = null;
+    let selectedSymbol = "BTC";
+    let selectedTimeframe = "24H";
+
+    let allCoins = []; // All Binance base assets
+
+    async function fetchUsdToInr() {
+      try {
+        const res = await fetch("https://open.er-api.com/v6/latest/USD");
+        if (!res.ok) throw new Error("Failed to fetch USD/INR");
+        const data = await res.json();
+        usdToInrRate = data.rates.INR;
+      } catch {
+        usdToInrRate = 82; // fallback
+      }
+    }
+    function usdToInr(valueUsd) {
+      if (!usdToInrRate) return "₹0.00";
+      const inr = Number(valueUsd) * usdToInrRate;
+      return "₹" + inr.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    }
+
+    async function fetchPrice(symbolBinance) {
+      try {
+        const res = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbolBinance}`);
+        if (!res.ok) throw new Error("Failed fetching ticker");
+        return await res.json();
+      } catch (e) {
+        //console.error("Binance price fetch error:", e);
+        return null;
+      }
+    }
+
+    async function fetchAllCoins() {
+      try {
+        const res = await fetch("https://api.binance.com/api/v3/exchangeInfo");
+        const data = await res.json();
+        const coinsSet = new Set();
+        data.symbols.forEach(({ baseAsset }) => coinsSet.add(baseAsset));
+        allCoins = Array.from(coinsSet).sort();
+      } catch {
+        allCoins = Object.keys(coinMeta);
+      }
+    }
+
+    function createWatchlistItem(symbol) {
+      const item = document.createElement("div");
+      item.className = "watchlist-item p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors border border-transparent";
+      item.dataset.symbol = symbol;
+      item.innerHTML = `
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 bg-gray-400 rounded-full flex items-center justify-center">
+            <i class="ri-currency-line text-white text-sm"></i>
+          </div>
+          <div>
+            <div class="coin-name font-medium text-gray-900">${symbol}</div>
+            <div class="coin-symbol text-xs text-gray-500">${symbol}</div>
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="coin-price font-medium text-gray-900">Loading...</div>
+          <div class="coin-change text-xs text-gray-600">--%</div>
+        </div>
+      </div>
+      <div class="coin-change-bar mt-2 h-8 rounded opacity-30 bg-gray-100"></div>
+      `;
+      // Add click listener
+      item.addEventListener("click", () => {
+        updateSelectedCoin(symbol);
+        document.querySelectorAll(".watchlist-item").forEach(wi => {
+          wi.classList.remove("bg-blue-50", "border-blue-200");
+          if (wi.dataset.symbol === symbol) {
+            wi.classList.add("bg-blue-50", "border-blue-200");
+          }
+        });
+      });
+      return item;
+    }
+
+    async function updateSingleCoinPrice(symbol, itemElement) {
+      const binanceSymbol = symbol + "USDT";
+      try {
+        const res = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${binanceSymbol}`);
+        if (!res.ok) throw new Error("Not found");
+        const data = await res.json();
+        const price = data.lastPrice ? usdToInr(data.lastPrice) : "--";
+        const changeRaw = data.priceChangePercent;
+        const change = changeRaw ? (parseFloat(changeRaw) >= 0 ? "+" : "") + parseFloat(changeRaw).toFixed(2) + "%" : "--";
+        const priceEl = itemElement.querySelector(".coin-price");
+        const changeEl = itemElement.querySelector(".coin-change");
+        priceEl.textContent = price;
+        changeEl.textContent = change;
+        changeEl.classList.toggle("text-green-600", parseFloat(changeRaw) >= 0);
+        changeEl.classList.toggle("text-red-600", parseFloat(changeRaw) < 0);
+        
+        const changeBar = itemElement.querySelector(".coin-change-bar");
+        if(changeBar){
+          changeBar.className = "coin-change-bar mt-2 h-8 rounded opacity-30";
+          if(parseFloat(changeRaw) >= 0){
+            changeBar.classList.add("bg-gradient-to-r", "from-green-100", "to-green-200");
+          } else {
+            changeBar.classList.add("bg-gradient-to-r", "from-red-100", "to-red-200");
+          }
+        }
+      } catch {
+        // Ignore
+      }
+    }
+
+    async function renderWatchlist(coins) {
+      const container = document.getElementById("watchlistContainer");
+      container.innerHTML = "";
+      // Show max 50 results for UI performance
+      const toShow = coins.slice(0, 50);
+      for (const symbol of toShow) {
+        const item = createWatchlistItem(symbol);
+        container.appendChild(item);
+        updateSingleCoinPrice(symbol, item);
+      }
+    }
+
+    // World Market Data show major indices using public API (Yahoo Finance)
+    async function fetchWorldMarketData() {
+      const markets = [
+        { name: "S&P 500", symbol: "^GSPC" },
+        { name: "Dow Jones", symbol: "^DJI" },
+        { name: "NASDAQ", symbol: "^IXIC" },
+        { name: "FTSE 100", symbol: "^FTSE" },
+        { name: "Nikkei 225", symbol: "^N225" },
+        { name: "DAX", symbol: "^GDAXI" },
+      ];
+      const container = document.getElementById("worldMarketList");
+      container.innerHTML = "Loading global market data...";
+      try {
+        // Yahoo Finance unofficial API for quotes - CORS friendly
+        const symbols = markets.map(m => m.symbol).join(",");
+        const res = await fetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`);
+        if (!res.ok) throw new Error("Failed fetching market data");
+        const json = await res.json();
+        const results = json.quoteResponse.result;
+
+        container.innerHTML = "";
+        for (const mkt of markets) {
+          const data = results.find(r => r.symbol === mkt.symbol);
+          if (!data) continue;
+          const price = data.regularMarketPrice ? data.regularMarketPrice.toFixed(2) : "--";
+          const change = data.regularMarketChangePercent;
+          const changeStr = change !== undefined ? (change >= 0 ? "+" : "") + change.toFixed(2) + "%" : "--";
+          const colorClass = (change >= 0) ? "text-green-600" : "text-red-600";
+
+          const row = document.createElement("div");
+          row.className = "flex justify-between";
+          row.innerHTML = `
+            <div class="font-medium">${mkt.name}</div>
+            <div class="${colorClass} text-right">
+              <div>${price}</div>
+              <div class="text-xs">${changeStr}</div>
+            </div>
+          `;
+          container.appendChild(row);
+        }
+      } catch (e) {
+        container.innerHTML = `<div class="text-red-600 text-xs italic">Failed to load market data</div>`;
+      }
+    }
+
+    // TradingView Initialization
+    function initTradingViewWidget(symbolBinance = "BTCUSDT", interval = "D") {
+      if (tvWidget) tvWidget.remove();
+      tvWidget = new TradingView.widget({
+        autosize: true,
+        symbol: `BINANCE:${symbolBinance}`,
+        interval,
+        timezone: "Etc/UTC",
+        theme: "light",
+        style: "1",
+        locale: "en",
+        toolbar_bg: "#f1f3f6",
+        enable_publishing: false,
+        hide_side_toolbar: false,
+        allow_symbol_change: true,
+        container_id: "tradingview_chart",
+        studies: ["RSI@tv-basicstudies", "MASimple@tv-basicstudies", "MACD@tv-basicstudies"],
+        show_popup_button: false,
+        popup_width: "1000",
+        popup_height: "650",
+        hide_volume: false,
+        withdateranges: true,
+        save_image: false,
+        details: true,
+        hotlist: true,
+        calendar: true,
+        width: "100%",
+        height: "100%",
+      });
+    }
+
+    const timeframeMap = {
+      "1H": "60",
+      "24H": "D",
+      "7D": "W",
+      "30D": "M",
+      "1Y": "3M",
+    };
+
+    function updateChart(symbol = "BTC", timeframe = "24H") {
+      const tvSymbol = coinMeta[symbol]?.symbolBinance || (symbol + "USDT");
+      const interval = timeframeMap[timeframe] || "D";
+      initTradingViewWidget(tvSymbol, interval);
+    }
+
+    function updateOrderBookSimulated(symbol) {
+      const sellContainer = document.getElementById("orderBookSell");
+      const buyContainer = document.getElementById("orderBookBuy");
+      const currentPriceEl = document.getElementById("orderBookCurrentPrice");
+
+      sellContainer.innerHTML = "";
+      buyContainer.innerHTML = "";
+
+      fetchPrice(coinMeta[symbol]?.symbolBinance || (symbol + "USDT")).then(ticker => {
+        if (!ticker) return;
+
+        const lastPrice = parseFloat(ticker.lastPrice);
+        currentPriceEl.textContent = usdToInr(lastPrice);
+
+        for (let i = 5; i >= 1; i--) {
+          const price = lastPrice + i * (lastPrice * 0.001);
+          const amount = (Math.random() * 5).toFixed(3);
+          const div = document.createElement("div");
+          div.className = "flex justify-between text-xs text-red-600";
+          div.innerHTML = `<span>${usdToInr(price)}</span><span class="text-gray-600">${amount}</span>`;
+          sellContainer.appendChild(div);
+        }
+        for (let i = 1; i <= 5; i++) {
+          const price = lastPrice - i * (lastPrice * 0.001);
+          const amount = (Math.random() * 5).toFixed(3);
+          const div = document.createElement("div");
+          div.className = "flex justify-between text-xs text-green-600";
+          div.innerHTML = `<span>${usdToInr(price)}</span><span class="text-gray-600">${amount}</span>`;
+          buyContainer.appendChild(div);
+        }
+      });
+    }
+    function updateRecentTradesSimulated(symbol) {
+      const tradesContainer = document.getElementById("recentTrades");
+      tradesContainer.innerHTML = "";
+      fetchPrice(coinMeta[symbol]?.symbolBinance || (symbol + "USDT")).then(ticker => {
+        if (!ticker) return;
+        const lastPrice = parseFloat(ticker.lastPrice);
+        const now = Date.now();
+
+        for (let i = 0; i < 10; i++) {
+          const isBuy = Math.random() > 0.5;
+          const priceFluct = (Math.random() * lastPrice * 0.002) - lastPrice * 0.001;
+          const price = lastPrice + priceFluct;
+          const amount = (Math.random() * 3).toFixed(3);
+          const time = new Date(now - i * 1000 * 30).toLocaleTimeString();
+
+          const div = document.createElement("div");
+          div.className = "flex justify-between text-xs";
+          div.innerHTML = `
+            <span class="${isBuy ? "text-green-600" : "text-red-600"}">${usdToInr(price)}</span>
+            <span class="text-gray-600">${amount}</span>
+            <span class="text-gray-400">${time}</span>
+          `;
+          tradesContainer.appendChild(div);
+        }
+      });
+    }
+
+    async function updateSelectedCoin(symbol) {
+      selectedSymbol = symbol;
+      try {
+        let symbolToFetch = coinMeta[symbol]?.symbolBinance || symbol + "USDT";
+        const ticker = await fetchPrice(symbolToFetch);
+        if (!ticker) throw new Error("No ticker data");
+
+        document.getElementById("selectedCoin").textContent = `${symbol} (${symbol})`;
+        document.getElementById("currentPrice").textContent = usdToInr(ticker.lastPrice);
+
+        const changePercent = parseFloat(ticker.priceChangePercent);
+        const priceChangeEl = document.getElementById("priceChange");
+        priceChangeEl.textContent = (changePercent >= 0 ? "+" : "") + changePercent.toFixed(2) + "%";
+        priceChangeEl.className = "text-lg " + (changePercent >= 0 ? "text-green-600" : "text-red-600");
+
+        const iconEl = document.getElementById("selectedCoinIcon");
+        iconEl.className = `w-10 h-10 rounded-full flex items-center justify-center ${coinMeta[symbol]?.color || "bg-gray-400"}`;
+        iconEl.innerHTML = '<i class="ri-currency-line text-white text-lg"></i>';
+
+        document.getElementById("high24h").textContent = usdToInr(ticker.highPrice);
+        document.getElementById("low24h").textContent = usdToInr(ticker.lowPrice);
+        document.getElementById("volume").textContent = usdToInr(ticker.quoteVolume);
+
+        document.getElementById("marketCapCoin").textContent = "N/A";
+        document.getElementById("circulatingSupply").textContent = "N/A";
+        document.getElementById("maxSupply").textContent = "N/A";
+
+        updateOrderBookSimulated(symbol);
+        updateRecentTradesSimulated(symbol);
+
+        updateChart(symbol, selectedTimeframe);
+
+        // Highlight selected in watchlist if exists
+        document.querySelectorAll(".watchlist-item").forEach(item => {
+          item.classList.remove("bg-blue-50", "border-blue-200");
+          if(item.dataset.symbol === symbol) {
+            item.classList.add("bg-blue-50", "border-blue-200");
+          }
+        });
+
+      } catch (err) {
+        console.error("Error updating selected coin:", err);
+      }
+    }
+
+    function setupSearch() {
+      const input = document.getElementById("searchInput");
+      input.addEventListener("input", () => {
+        const val = input.value.trim().toLowerCase();
+        if (!val) {
+          // Show default favorites
+          renderWatchlist(Object.keys(coinMeta));
+        } else {
+          // Filter the full coin list by input
+          const filtered = allCoins.filter(c => c.toLowerCase().includes(val));
+          renderWatchlist(filtered);
+        }
+      });
+    }
+
+    function setupTimeframeButtons() {
+      const buttons = document.querySelectorAll(".timeframe-btn");
+      buttons.forEach(btn => {
+        btn.addEventListener("click", () => {
+          buttons.forEach(b => {
+            b.classList.remove("bg-primary", "text-white");
+            b.classList.add("text-gray-600", "bg-gray-100");
+          });
+          btn.classList.remove("text-gray-600", "bg-gray-100");
+          btn.classList.add("bg-primary", "text-white");
+          selectedTimeframe = btn.dataset.timeframe;
+          updateChart(selectedSymbol, selectedTimeframe);
+        });
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      await fetchUsdToInr();
+      await fetchAllCoins();
+
+      setupSearch();
+      setupTimeframeButtons();
+
+      // Initially show favorites
+      renderWatchlist(Object.keys(coinMeta));
+
+      // Select default coin
+      await updateSelectedCoin("BTC");
+
+      // Fetch global market info
+      fetchWorldMarketData();
+
+      // Refresh intervals
+      setInterval(async () => {
+        await fetchUsdToInr();
+        await loadWatchlistData();
+        await updateMarketOverview();
+        await fetchWorldMarketData();
+        await updateSelectedCoin(selectedSymbol);
+      }, 60000);
+
+      // Update watchlist prices periodically
+      async function loadWatchlistData() {
+        const visibleItems = Array.from(document.querySelectorAll(".watchlist-item"));
+        visibleItems.forEach(async item => {
+          await updateSingleCoinPrice(item.dataset.symbol, item);
+        });
+      }
+      loadWatchlistData();
+
+    });
+
+    async function loadWatchlistData() {
+      const visibleItems = Array.from(document.querySelectorAll(".watchlist-item"));
+      visibleItems.forEach(async item => {
+        await updateSingleCoinPrice(item.dataset.symbol, item);
+      });
+    }
+
+    async function updateMarketOverview() {
+      try {
+        const btcTicker = await fetchPrice("BTCUSDT");
+        if (!btcTicker) return;
+
+        const btcCircSupply = 19600000;
+        const marketCapUsd = parseFloat(btcTicker.lastPrice) * btcCircSupply;
+        const marketCapInr = usdToInr(marketCapUsd);
+
+        document.getElementById("marketCap").textContent = marketCapInr;
+        document.getElementById("marketCapChange").textContent = "+2.34%";
+        document.getElementById("marketCapChange").className = "text-sm text-green-600";
+
+        const volUsd = parseFloat(btcTicker.quoteVolume);
+        const volInr = usdToInr(volUsd);
+        document.getElementById("volume24h").textContent = volInr;
+        document.getElementById("volume24hChange").textContent = "-1.23%";
+        document.getElementById("volume24hChange").className = "text-sm text-red-600";
+
+        document.getElementById("btcDominance").textContent = "52.3%";
+        document.getElementById("btcDominanceChange").textContent = "+0.45%";
+        document.getElementById("btcDominanceChange").className = "text-sm text-green-600";
+        document.getElementById("marketSentiment").textContent = "Bullish";
+        document.getElementById("fearGreedIndex").textContent = "Fear & Greed: 67";
+      } catch {
+        // ignore error
+      }
+    }
+
+    async function fetchWorldMarketData() {
+      const markets = [
+        { name: "S&P 500", symbol: "^GSPC" },
+        { name: "Dow Jones", symbol: "^DJI" },
+        { name: "NASDAQ", symbol: "^IXIC" },
+        { name: "FTSE 100", symbol: "^FTSE" },
+        { name: "Nikkei 225", symbol: "^N225" },
+        { name: "DAX", symbol: "^GDAXI" },
+      ];
+      const container = document.getElementById("worldMarketList");
+      container.innerHTML = "Loading global market data...";
+      try {
+        const symbols = markets.map(m => m.symbol).join(",");
+        const res = await fetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`);
+        if (!res.ok) throw new Error("Failed fetching market data");
+        const json = await res.json();
+        const results = json.quoteResponse.result;
+        container.innerHTML = "";
+        for (const mkt of markets) {
+          const data = results.find(r => r.symbol === mkt.symbol);
+          if (!data) continue;
+          const price = data.regularMarketPrice ? data.regularMarketPrice.toFixed(2) : "--";
+          const change = data.regularMarketChangePercent;
+          const changeStr = change !== undefined ? (change >= 0 ? "+" : "") + change.toFixed(2) + "%" : "--";
+          const colorClass = (change >= 0) ? "text-green-600" : "text-red-600";
+
+          const row = document.createElement("div");
+          row.className = "flex justify-between";
+          row.innerHTML = `
+            <div class="font-medium">${mkt.name}</div>
+            <div class="${colorClass} text-right">
+              <div>${price}</div>
+              <div class="text-xs">${changeStr}</div>
+            </div>
+          `;
+          container.appendChild(row);
+        }
+      } catch {
+        container.innerHTML = `<div class="text-red-600 text-xs italic">Failed to load market data</div>`;
+      }
+    }
+  </script>
+</body>
+</html>
